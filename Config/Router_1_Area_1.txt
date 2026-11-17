@@ -1,0 +1,54 @@
+enable
+configure terminal
+hostname Router_1_Area_1
+banner motd #
+=====================================================================
+  NATIONAL BANK - SECURE NETWORK
+  DEVICE: Router_1_Area_1 (Branch 1 Primary)
+=====================================================================
+#
+no ip domain-lookup
+
+interface GigabitEthernet0/0
+ ip address 10.0.1.1 255.255.255.252
+ no shutdown
+ exit
+interface GigabitEthernet0/1
+ ip address 10.1.0.2 255.255.255.0
+ standby 1 ip 10.1.0.1
+ standby 1 priority 110
+ standby 1 preempt
+ ip ospf priority 100
+ no shutdown
+ exit
+interface GigabitEthernet0/2
+ ip address 10.0.110.2 255.255.255.240
+ no shutdown
+ exit
+
+router ospf 1
+ router-id 3.3.3.3
+ network 10.0.1.0 0.0.0.3 area 1
+ network 10.1.0.0 0.0.0.255 area 1
+ network 10.0.110.0 0.0.0.15 area 1
+ exit
+
+service password-encryption
+enable secret admin
+line console 0
+ password admin
+ login
+ exec-timeout 5 0
+ logging synchronous
+ exit
+ip domain-name banking.local
+crypto key generate rsa general-keys modulus 1024
+username admin secret admin
+line vty 0 4
+ login local
+ transport input ssh
+ exec-timeout 5 0
+ logging synchronous
+ exit
+end
+write memory

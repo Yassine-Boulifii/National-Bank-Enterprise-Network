@@ -1,0 +1,220 @@
+enable
+configure terminal
+hostname SW-L3-1-A
+ip routing
+banner motd #
+=====================================================================
+  NATIONAL BANK - SECURE NETWORK
+  DEVICE: SW-L3-1-A (Branch A Primary Core Switch)
+=====================================================================
+#
+no ip domain-lookup
+
+vlan 10
+ name ADMIN
+vlan 20
+ name GUICHETS
+vlan 30
+ name DAB
+vlan 40
+ name WIFI
+vlan 60
+ name SERVERS
+vlan 99
+ name MANAGEMENT
+exit
+
+spanning-tree mode rapid-pvst
+spanning-tree vlan 10,20,30,40,60,99 priority 4096
+
+interface Port-channel1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,60,99
+ switchport trunk native vlan 99
+ no shutdown
+ exit
+interface range GigabitEthernet1/0/1 - 2
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,60,99
+ switchport trunk native vlan 99
+ channel-group 1 mode active
+ no shutdown
+ exit
+
+interface Port-channel2
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,60,99
+ switchport trunk native vlan 99
+ no shutdown
+ exit
+interface range GigabitEthernet1/0/4 - 5
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,60,99
+ switchport trunk native vlan 99
+ channel-group 2 mode active
+ no shutdown
+ exit
+
+
+interface GigabitEthernet1/0/6
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,60,99
+ switchport trunk native vlan 99
+ no shutdown
+ exit
+
+
+interface GigabitEthernet1/0/3
+ no switchport
+ ip address 10.1.0.10 255.255.255.0
+ no shutdown
+ exit
+
+interface range GigabitEthernet1/0/7 - 24
+ shutdown
+ exit
+
+! --- SVIs & HSRP ---
+interface Vlan10
+ ip address 10.1.10.2 255.255.255.0
+ standby 10 ip 10.1.10.1
+ standby 10 priority 110
+ standby 10 preempt
+ no shutdown
+ exit
+interface Vlan20
+ ip address 10.1.20.2 255.255.255.0
+ standby 20 ip 10.1.20.1
+ standby 20 priority 110
+ standby 20 preempt
+ no shutdown
+ exit
+interface Vlan30
+ ip address 10.1.30.2 255.255.255.0
+ standby 30 ip 10.1.30.1
+ no shutdown
+ exit
+interface Vlan40
+ ip address 10.1.40.2 255.255.255.0
+ standby 40 ip 10.1.40.1
+ no shutdown
+ exit
+interface Vlan60
+ ip address 10.1.60.2 255.255.255.0
+ standby 60 ip 10.1.60.1
+ standby 60 priority 110
+ standby 60 preempt
+ no shutdown
+ exit
+interface Vlan99
+ ip address 10.1.99.20 255.255.255.0
+ standby 99 ip 10.1.99.1
+ standby 99 priority 110
+ standby 99 preempt
+ no shutdown
+ exit
+
+! --- OSPF & DHCP ---
+router ospf 1
+ router-id 10.1.1.1
+ network 10.1.10.0 0.0.0.255 area 1
+ network 10.1.20.0 0.0.0.255 area 1
+ network 10.1.30.0 0.0.0.255 area 1
+ network 10.1.40.0 0.0.0.255 area 1
+ network 10.1.60.0 0.0.0.255 area 1
+ network 10.1.99.0 0.0.0.255 area 1
+ network 10.1.0.0 0.0.0.255 area 1
+ passive-interface default
+ no passive-interface GigabitEthernet1/0/3
+ exit
+
+ip dhcp excluded-address 10.1.10.1 10.1.10.10
+ip dhcp excluded-address 10.1.20.1 10.1.20.10
+ip dhcp excluded-address 10.1.30.1 10.1.30.10
+ip dhcp excluded-address 10.1.40.1 10.1.40.10
+ip dhcp pool ADMIN
+ network 10.1.10.0 255.255.255.0
+ default-router 10.1.10.1
+ip dhcp pool GUICHETS
+ network 10.1.20.0 255.255.255.0
+ default-router 10.1.20.1
+ip dhcp pool DAB
+ network 10.1.30.0 255.255.255.0
+ default-router 10.1.30.1
+ip dhcp pool WIFI
+ network 10.1.40.0 255.255.255.0
+ default-router 10.1.40.1
+exit
+
+ip access-list extended BRANCH_IN
+ ! Allow return ping & TCP traffic to Branch A and Branch B ADMIN (VLAN 10)
+ permit icmp any 10.1.10.0 0.0.0.255 echo-reply
+ permit icmp any 10.2.10.0 0.0.0.255 echo-reply
+ permit tcp any 10.1.10.0 0.0.0.255 established
+ permit tcp any 10.2.10.0 0.0.0.255 established
+
+ ! Block WIFI (VLAN 40) from internal 10.0.0.0/8 network
+ deny ip 10.1.40.0 0.0.0.255 10.0.0.0 0.255.255.255
+
+ ! Block GUICHETS (VLAN 20) & DAB (VLAN 30) from initiating traffic to ADMIN (VLAN 10)
+ deny ip 10.1.20.0 0.0.0.255 10.1.10.0 0.0.0.255
+ deny ip 10.1.30.0 0.0.0.255 10.1.10.0 0.0.0.255
+ deny ip 10.1.20.0 0.0.0.255 10.2.10.0 0.0.0.255
+ deny ip 10.1.30.0 0.0.0.255 10.2.10.0 0.0.0.255
+
+ ! Allow Branch A & Branch B ADMIN (VLAN 10) to access Branch A Server (10.1.60.10)
+ permit tcp 10.1.10.0 0.0.0.255 host 10.1.60.10 eq 21
+ permit icmp 10.1.10.0 0.0.0.255 host 10.1.60.10 echo
+ permit tcp 10.2.10.0 0.0.0.255 host 10.1.60.10 eq 21
+ permit icmp 10.2.10.0 0.0.0.255 host 10.1.60.10 echo
+
+ ! Block everyone else from FTP & Ping to Branch A Server (10.1.60.10)
+ deny tcp any host 10.1.60.10 eq 21
+ deny icmp any host 10.1.60.10 echo
+
+ ! Permit all other traffic
+ permit ip any any
+ exit
+
+ip access-list standard SSH_RESTRICT
+ permit 10.1.10.0 0.0.0.255
+ permit 10.1.99.0 0.0.0.255
+ permit 10.2.10.0 0.0.0.255
+ permit 10.2.99.0 0.0.0.255
+ exit
+
+line vty 0 4
+ access-class SSH_RESTRICT in
+ exit
+
+interface Vlan10
+ ip access-group BRANCH_IN in
+ exit
+interface Vlan20
+ ip access-group BRANCH_IN in
+ exit
+interface Vlan30
+ ip access-group BRANCH_IN in
+ exit
+interface Vlan40
+ ip access-group BRANCH_IN in
+ exit
+service password-encryption
+enable secret admin
+line console 0
+ password admin
+ login
+ exec-timeout 5 0
+ logging synchronous
+ exit
+ip domain-name banking.local
+crypto key generate rsa general-keys modulus 1024
+username admin secret admin
+line vty 0 4
+ login local
+ transport input ssh
+ exec-timeout 5 0
+ logging synchronous
+ exit
+end
+write memory

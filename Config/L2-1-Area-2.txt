@@ -1,0 +1,138 @@
+enable
+configure terminal
+hostname SW-L2-1-B
+banner motd #
+=====================================================================
+  NATIONAL BANK - SECURE NETWORK
+  DEVICE: SW-L2-1-B (Branch B Primary Access Switch)
+=====================================================================
+#
+no ip domain-lookup
+
+vlan 10
+ name ADMIN
+vlan 20
+ name GUICHETS
+vlan 30
+ name DAB
+vlan 40
+ name WIFI
+vlan 60
+ name SERVERS
+vlan 99
+ name MANAGEMENT
+exit
+
+spanning-tree mode rapid-pvst
+spanning-tree vlan 10,20,30,40,60,99 priority 16384
+
+interface Port-channel1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,60,99
+ switchport trunk native vlan 99
+ no shutdown
+ exit
+! --- EtherChannels ---
+interface range GigabitEthernet0/1 - 2
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,60,99
+ switchport trunk native vlan 99
+ channel-group 1 mode active
+ no shutdown
+ exit
+
+interface Port-channel2
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,60,99
+ switchport trunk native vlan 99
+ no shutdown
+ exit
+interface FastEthernet0/3
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,60,99
+ switchport trunk native vlan 99
+ channel-group 2 mode active
+ no shutdown
+ exit
+
+
+interface range FastEthernet0/1 - 2
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,60,99
+ switchport trunk native vlan 99
+ no shutdown
+ exit
+
+interface range FastEthernet0/4 - 7
+ switchport mode access
+ switchport access vlan 10
+ spanning-tree portfast
+ no shutdown
+ exit
+interface range FastEthernet0/8 - 10
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+ no shutdown
+ exit
+interface range FastEthernet0/11 - 12
+ switchport mode access
+ switchport access vlan 30
+ spanning-tree portfast
+ no shutdown
+ exit
+interface range FastEthernet0/13 - 18
+ switchport mode access
+ switchport access vlan 40
+ spanning-tree portfast
+ no shutdown
+ exit
+interface FastEthernet0/19
+ switchport mode access
+ switchport access vlan 60
+ spanning-tree portfast
+ no shutdown
+ exit
+
+interface range FastEthernet0/4 - 19
+ switchport port-security
+ switchport port-security maximum 1
+ switchport port-security violation restrict
+ switchport port-security mac-address sticky
+ exit
+
+interface range FastEthernet0/20 - 23
+ shutdown
+ exit
+
+! --- Management & Default Gateway (Branch B) ---
+interface Vlan99
+ ip address 10.2.99.10 255.255.255.0
+ no shutdown
+ exit
+interface FastEthernet0/24
+ switchport mode access
+ switchport access vlan 99
+ no shutdown
+ exit
+ip default-gateway 10.2.99.1
+
+service password-encryption
+enable secret admin
+line console 0
+ password admin
+ login
+ exec-timeout 5 0
+ logging synchronous
+ exit
+ip domain-name banking.local
+crypto key generate rsa general-keys modulus 1024
+username admin secret admin
+line vty 0 4
+ login local
+ transport input ssh
+ exec-timeout 5 0
+ logging synchronous
+ exit
+end
+write memory
