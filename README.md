@@ -1,3 +1,4 @@
+![Network Poster](poster.png)
 # 🏦 National Bank Secure Enterprise Network
 
 ## 📖 Project Overview
