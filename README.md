@@ -67,7 +67,7 @@ This repository contains the complete Cisco Packet Tracer configuration for a hi
 4. **Network Hardening:** All unused ports are administratively shut down. Native VLAN is changed to 99 to prevent VLAN hopping attacks.
 5. **Device Security:** Console and VTY lines are password-protected with a 5-minute inactivity timeout. Passwords are encrypted, and the MOTD banners enforce legal warnings.
 
-## 🚀 How to Deploy
+##  How to Deploy
 
 1. Open Cisco Packet Tracer.
 2. Drag and drop the required Routers, Layer 3 Switches, Layer 2 Switches, and Servers.
